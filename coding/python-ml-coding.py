@@ -258,4 +258,4 @@ if __name__ == "__main__":
     print(f"   softmax([1,2,3]): {patterns['softmax'](np.array([1.0, 2.0, 3.0]))}")
     print(f"   cosine_sim([1,0], [1,1]): {patterns['cosine_similarity'](np.array([1,0]), np.array([1,1])):.4f}")
 
-    print("\n✅ All examples complete!")
+    print("\nAll examples complete!")
