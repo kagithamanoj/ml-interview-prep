@@ -1,96 +1,140 @@
-# Deep Learning — Interview Questions & Answers
+# Deep Learning — Interview Reference
 
 ## Neural Network Fundamentals
 
-### Q1: Explain backpropagation in simple terms.
-**Answer**: Backpropagation computes how much each weight contributed to the error, so we can update it.
+### Activation Functions
+| Function | Formula | Range | When to Use |
+|----------|---------|-------|-------------|
+| ReLU | max(0, x) | [0, ∞) | Default for hidden layers |
+| Leaky ReLU | max(0.01x, x) | (-∞, ∞) | When dying ReLU is a problem |
+| Sigmoid | 1/(1+e⁻ˣ) | (0, 1) | Binary classification output |
+| Tanh | (eˣ-e⁻ˣ)/(eˣ+e⁻ˣ) | (-1, 1) | RNNs, normalized output |
+| Softmax | eˣⁱ/Σeˣʲ | (0, 1), sum=1 | Multi-class output |
+| GELU | x·Φ(x) | ~ (-0.17, ∞) | Transformers (BERT, GPT) |
 
-1. **Forward pass**: Input flows through layers to produce output
-2. **Loss computation**: Compare output to ground truth
-3. **Backward pass**: Chain rule propagates gradients from loss back through each layer
-4. **Weight update**: `w = w - lr × ∂loss/∂w`
+### Loss Functions
+| Function | Task | Formula |
+|----------|------|---------|
+| MSE | Regression | (1/n)Σ(y-ŷ)² |
+| MAE | Regression (robust) | (1/n)Σ\|y-ŷ\| |
+| BCE | Binary Classification | -[y·log(ŷ) + (1-y)·log(1-ŷ)] |
+| Cross-Entropy | Multi-class | -Σ yᵢ·log(ŷᵢ) |
+| Focal Loss | Imbalanced | -αₜ(1-pₜ)ᵧ·log(pₜ) |
 
-**Key insight**: Chain rule allows computing gradients layer-by-layer without recalculating from scratch:
+### Optimizers
+| Optimizer | Key Idea | When to Use |
+|-----------|----------|-------------|
+| SGD | Vanilla gradient descent | Simple, with momentum |
+| SGD + Momentum | Accelerated gradient | When stuck in local minima |
+| Adam | Adaptive learning rate | Default choice |
+| AdamW | Adam + weight decay fix | Transformers, large models |
+| LAMB | Layer-wise adaptive rates | Very large batch training |
+
+---
+
+## Architectures
+
+### CNNs (Convolutional Neural Networks)
 ```
-∂loss/∂w₁ = ∂loss/∂output × ∂output/∂hidden × ∂hidden/∂w₁
-```
+Key concepts:
+- Convolution: sliding filter extracts local features
+- Pooling: reduces spatial dimensions (max/avg)
+- Feature hierarchy: edges → textures → objects
 
-### Q2: What is the vanishing gradient problem? How is it solved?
-**Answer**: In deep networks, gradients shrink exponentially as they propagate backward through many layers. With sigmoid/tanh activations (gradients in [0, 0.25] or [0, 1]), multiplying many small numbers → near-zero gradients → early layers don't learn.
-
-**Solutions**:
-| Solution | How It Helps |
-|----------|-------------|
-| **ReLU activation** | Gradient = 1 for positive inputs (no shrinking) |
-| **Residual connections** | Skip connections add identity path for gradients |
-| **Batch normalization** | Normalizes layer inputs, stabilizes gradient flow |
-| **LSTM/GRU cells** | Gating mechanisms preserve gradients over sequences |
-| **Careful initialization** | Xavier/He init keeps variance stable across layers |
-| **Gradient clipping** | Caps gradient magnitude (helps with exploding too) |
-
-### Q3: Explain the Transformer architecture.
-**Answer**: The Transformer replaces recurrence with **self-attention**, processing all tokens in parallel.
-
-**Core components**:
-```
-Input → [Token Embedding + Positional Encoding]
-         ↓
-    [Multi-Head Self-Attention] ← Q, K, V projections
-         ↓
-    [Layer Normalization + Residual]
-         ↓
-    [Feed-Forward Network (2 linear layers + GELU)]
-         ↓
-    [Layer Normalization + Residual]
-         ↓
-    × N layers
-         ↓
-    Output
+Architecture pattern:
+Conv → BatchNorm → ReLU → Pool → ... → Flatten → Dense → Softmax
 ```
 
-**Self-Attention**: `Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V`
-- **Q** (Query): What am I looking for?
-- **K** (Key): What do I contain?
-- **V** (Value): What information do I provide?
-- **√dₖ**: Scaling factor to prevent softmax saturation
+**Interview Q:** *"Why convolutions instead of fully-connected?"*
+→ Parameter sharing, translation invariance, spatial hierarchy
 
-**Multi-Head**: Run attention h times in parallel with different learned projections → captures different relationship types.
+### RNNs / LSTMs / GRUs
+```
+RNN problem: vanishing/exploding gradients for long sequences
 
-### Q4: What is the difference between GPT and BERT?
-**Answer**:
-| | GPT | BERT |
-|--|-----|------|
-| **Architecture** | Decoder-only (causal attention) | Encoder-only (bidirectional attention) |
-| **Training** | Predict next token (autoregressive) | Mask & predict random tokens (MLM) |
-| **Context** | Sees only left context | Sees full bidirectional context |
-| **Best for** | Text generation, chat, coding | Classification, NER, Q&A extraction |
-| **Inference** | Sequential token generation | Process full input at once |
+LSTM gates:
+- Forget gate: what to discard from cell state
+- Input gate: what new info to store
+- Output gate: what to output
 
-### Q5: What are LoRA and QLoRA? Why do they matter?
-**Answer**: **LoRA** (Low-Rank Adaptation) makes fine-tuning practical:
-- Instead of updating all W parameters, decompose update as `ΔW = AB` where A∈ℝᵈˣʳ, B∈ℝʳˣᵈ
-- **r << d** (rank 4-64 vs thousands), so trainable params drop by ~99%
-- Original weights frozen → no catastrophic forgetting
+GRU (simplified LSTM):
+- Update gate: combines forget + input gates
+- Reset gate: how much past to forget
+```
 
-**QLoRA** adds quantization:
-- Base model weights quantized to 4-bit (NF4 format)
-- LoRA adapters remain in 16-bit for training
-- Can fine-tune 65B parameter models on a single 48GB GPU
+**Interview Q:** *"LSTM vs GRU?"*
+→ GRU: fewer parameters, faster. LSTM: more expressive for long sequences.
 
-## CNNs
+### Transformers
+```
+Key innovation: Self-attention (parallelizable, long-range dependencies)
 
-### Q6: How do convolutions work in neural networks?
-**Answer**: A convolution slides a small filter (3×3, 5×5) across the input, computing dot products to create a feature map.
+Architecture:
+- Encoder: Bidirectional attention (BERT)
+- Decoder: Causal attention (GPT)
+- Encoder-Decoder: Both (T5, BART)
 
-**Key hyperparameters**:
-| Parameter | Effect |
-|-----------|--------|
-| **Kernel size** | Receptive field size (3×3 most common) |
-| **Stride** | Step size (2 = downsample by 2) |
-| **Padding** | Border handling (same/valid) |
-| **Channels** | Number of filters = number of features learned |
+Key formulas:
+- Attention(Q,K,V) = softmax(QKᵀ/√dₖ)V
+- Multi-head: concat(head₁,...,headₕ)Wᴼ
+```
 
-**Why CNNs work**:
-- **Translation equivariance**: Detect features regardless of position
-- **Parameter sharing**: Same filter applied everywhere → far fewer parameters
-- **Hierarchical features**: Early layers = edges, mid = textures, deep = objects
+**Interview Q:** *"Why scale by √dₖ?"*
+→ Prevents softmax saturation when dot products are large
+
+---
+
+## Regularization Techniques
+
+| Technique | How | When |
+|-----------|-----|------|
+| Dropout | Randomly zero out neurons (p=0.1-0.5) | Overfitting, after dense layers |
+| Batch Normalization | Normalize activations per batch | Faster training, higher LR |
+| Layer Normalization | Normalize per sample | Transformers, RNNs |
+| Weight Decay (L2) | Penalize large weights | Always (small λ) |
+| Early Stopping | Stop when val loss increases | Training any model |
+| Data Augmentation | Transform training data | Limited data |
+| Label Smoothing | Soften hard labels (0.1) | Classification, transformers |
+
+---
+
+## Training Tricks
+
+### Learning Rate Schedules
+```
+- Warmup: Start low, increase linearly (first ~5% of training)
+- Cosine decay: High → Low following cosine curve
+- Step decay: Reduce by factor every N epochs
+- OneCycleLR: Ramp up → ramp down (fast training)
+```
+
+### Batch Size Guidelines
+```
+- Small (8-32): Better generalization, noisy gradients
+- Large (256-8192): Better GPU utilization, needs LR scaling
+- Rule: Scale LR linearly with batch size (LR × BS/base_BS)
+```
+
+### Mixed Precision Training
+```
+- Use FP16 for forward/backward pass (faster, less memory)
+- Keep FP32 master weights for stability
+- 2x speedup with minimal accuracy loss
+- Enable: torch.cuda.amp.autocast()
+```
+
+---
+
+## Common Interview Questions
+
+1. **"Explain backpropagation"** → Chain rule applied layer by layer. Compute loss gradient, propagate backward, update weights via SGD/Adam.
+
+2. **"Vanishing gradient problem"** → Sigmoid squashes gradients < 1, compounding over layers. Fix: ReLU, skip connections, LSTM gates, batch norm.
+
+3. **"Bias-variance tradeoff"** → High bias = underfitting (model too simple). High variance = overfitting (model too complex). Balance with regularization + model complexity.
+
+4. **"Why is ResNet effective?"** → Skip connections allow gradient flow through identity paths. Enables training 100+ layers without degradation.
+
+5. **"Explain attention mechanism"** → Each token computes relevance scores with all others via Q·K similarity, then takes weighted sum of V. Allows capturing long-range dependencies.
+
+6. **"Transfer learning strategy?"** → Pretrain on large dataset (ImageNet/Wikipedia), freeze base layers, fine-tune top layers on your task. Progressive unfreezing for best results.
